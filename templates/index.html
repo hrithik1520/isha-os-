@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lisa-ish Desktop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "MS Sans Serif", Arial, sans-serif;
+            background-color: #d9d9d9;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .menubar {
+            background-color: #c0c0c0;
+            border-bottom: 1px solid #dfdfdf;
+            display: flex;
+            gap: 20px;
+            padding: 4px 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .menu-item {
+            cursor: pointer;
+            padding: 4px 8px;
+            border: 1px solid transparent;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .menu-item:hover {
+            border: 1px solid #dfdfdf;
+            background-color: #e0e0e0;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            background-color: #c0c0c0;
+            border: 1px solid #dfdfdf;
+            box-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+            z-index: 1000;
+            min-width: 150px;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .menu-option {
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            border: 1px solid transparent;
+        }
+
+        .menu-option:hover {
+            background-color: #000080;
+            color: white;
+        }
+
+        .menu-separator {
+            border-top: 1px solid #dfdfdf;
+            margin: 2px 0;
+        }
+
+        .desktop {
+            display: flex;
+            height: calc(100vh - 40px);
+            padding: 20px;
+            overflow: auto;
+            gap: 40px;
+        }
+
+        .desktop-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .icon-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            gap: 4px;
+            width: 100px;
+        }
+
+        .icon-box {
+            width: 90px;
+            height: 60px;
+            background-color: white;
+            border: 2px outset #dfdfdf;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            user-select: none;
+            transition: all 0.1s;
+        }
+
+        .icon:hover .icon-box {
+            background-color: #f2f2f2;
+        }
+
+        .icon-box:active {
+            border-style: inset;
+        }
+
+        .icon-label {
+            font-size: 11px;
+            text-align: center;
+            font-weight: bold;
+            max-width: 100px;
+            word-wrap: break-word;
+        }
+
+        .icon-subtitle {
+            font-size: 9px;
+            color: #666;
+            text-align: center;
+        }
+
+        .window {
+            position: fixed;
+            background-color: #c0c0c0;
+            border: 2px outset #dfdfdf;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            box-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+            min-width: 300px;
+            min-height: 200px;
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .window-title {
+            background-color: #000080;
+            color: white;
+            padding: 2px 4px;
+            font-weight: bold;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            user-select: none;
+        }
+
+        .window-close {
+            cursor: pointer;
+            padding: 0 4px;
+            font-weight: bold;
+        }
+
+        .window-content {
+            flex: 1;
+            overflow: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .window textarea {
+            flex: 1;
+            padding: 4px;
+            border: 1px inset #dfdfdf;
+            font-family: "Courier New", monospace;
+            font-size: 11px;
+            resize: none;
+        }
+
+        .window-input {
+            border: 1px inset #dfdfdf;
+            padding: 4px;
+            font-size: 11px;
+        }
+
+        .button {
+            padding: 3px 12px;
+            background-color: #c0c0c0;
+            border: 2px outset #dfdfdf;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            active: false;
+        }
+
+        .button:hover {
+            background-color: #dfdfdf;
+        }
+
+        .button:active {
+            border-style: inset;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .listbox {
+            border: 1px inset #dfdfdf;
+            background-color: white;
+            font-size: 11px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .listbox-item {
+            padding: 2px 4px;
+            cursor: pointer;
+        }
+
+        .listbox-item:hover {
+            background-color: #000080;
+            color: white;
+        }
+
+        .listbox-item.selected {
+            background-color: #000080;
+            color: white;
+        }
+
+        .clock {
+            margin-left: auto;
+            font-size: 12px;
+            padding-right: 20px;
+            color: black;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="menubar">
+        <div class="menu-item" onclick="toggleMenu('file-menu')">File</div>
+        <div id="file-menu" class="dropdown-menu">
+            <div class="menu-option" onclick="promptNewDocument()">New from Stationery…</div>
+            <div class="menu-separator"></div>
+            <div class="menu-option" onclick="alert('Use browser back or close tab')">Quit</div>
+        </div>
+
+        <div class="menu-item" onclick="toggleMenu('edit-menu')">Edit</div>
+        <div id="edit-menu" class="dropdown-menu">
+            <div class="menu-option" onclick="showClipboardWindow()">Show Clipboard</div>
+            <div class="menu-option" onclick="clearClipboard()">Clear Clipboard</div>
+        </div>
+
+        <div class="menu-item" onclick="toggleMenu('desk-menu')">Desk</div>
+        <div id="desk-menu" class="dropdown-menu">
+            <div class="menu-option" onclick="alert('No open windows')">No open windows</div>
+        </div>
+
+        <div class="menu-item" onclick="showAbout()">Help</div>
+
+        <div class="clock" id="clock"></div>
+    </div>
+
+    <div class="desktop" id="desktop"></div>
+
+    <script>
+        let windows = [];
+        let desktopState = {};
+        let selectedDocument = null;
+
+        // Clock update
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Fetch desktop state
+        async function loadDesktop() {
+            const response = await fetch('/api/desktop');
+            desktopState = await response.json();
+            renderDesktop();
+        }
+
+        // Render desktop
+        function renderDesktop() {
+            const desktop = document.getElementById('desktop');
+            desktop.innerHTML = '';
+
+            // Left column: system icons
+            const leftSection = document.createElement('div');
+            leftSection.className = 'desktop-section';
+            leftSection.style.marginTop = '10px';
+
+            const createIcon = (label, icon, onclick, subtitle = '') => {
+                const iconEl = document.createElement('div');
+                iconEl.className = 'icon';
+                iconEl.innerHTML = `
+                    <div class="icon-box">${icon}</div>
+                    <div class="icon-label">${label}</div>
+                    ${subtitle ? `<div class="icon-subtitle">${subtitle}</div>` : ''}
+                `;
+                iconEl.ondblclick = onclick;
+                return iconEl;
+            };
+
+            leftSection.appendChild(createIcon('Wastebasket', '🗑️', showWastebasketWindow));
+            leftSection.appendChild(createIcon('Clipboard', '📋', showClipboardWindow));
+            leftSection.appendChild(createIcon('Preferences', '⚙️', showPreferences));
+
+            desktop.appendChild(leftSection);
+
+            // Middle column: stationery
+            const stationerySection = document.createElement('div');
+            stationerySection.className = 'desktop-section';
+            const stationeryTitle = document.createElement('div');
+            stationeryTitle.className = 'section-title';
+            stationeryTitle.textContent = 'Stationery pads';
+            stationerySection.appendChild(stationeryTitle);
+
+            const stationeryContainer = document.createElement('div');
+            stationeryContainer.className = 'icon-container';
+            desktopState.stationery.forEach(pad => {
+                const icon = createIcon(
+                    pad.label,
+                    pad.type === 'write' ? '📝' : pad.type === 'calc' ? '🧮' : '🎨',
+                    () => promptCreateDocument(pad.type),
+                    '(double-click)'
+                );
+                stationeryContainer.appendChild(icon);
+            });
+            stationerySection.appendChild(stationeryContainer);
+            desktop.appendChild(stationerySection);
+
+            // Right column: documents
+            const docsSection = document.createElement('div');
+            docsSection.className = 'desktop-section';
+            const docsTitle = document.createElement('div');
+            docsTitle.className = 'section-title';
+            docsTitle.textContent = 'Documents';
+            docsSection.appendChild(docsTitle);
+
+            if (desktopState.documents.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.fontSize = '11px';
+                empty.textContent = '(No documents yet)';
+                docsSection.appendChild(empty);
+            } else {
+                const docsContainer = document.createElement('div');
+                docsContainer.className = 'icon-container';
+                desktopState.documents.slice(-12).forEach(doc => {
+                    const icon = createIcon(
+                        doc.name,
+                        '📄',
+                        () => openDocument(doc),
+                        `(${doc.doc_type})`
+                    );
+                    docsContainer.appendChild(icon);
+                });
+                docsSection.appendChild(docsContainer);
+            }
+            desktop.appendChild(docsSection);
+        }
+
+        // Menu functions
+        function toggleMenu(menuId) {
+            // Close all menus
+            document.querySelectorAll('.dropdown-menu').forEach(m => {
+                m.classList.remove('show');
+            });
+            // Open clicked menu
+            document.getElementById(menuId).classList.toggle('show');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('menu-item')) {
+                document.querySelectorAll('.dropdown-menu').forEach(m => {
+                    m.classList.remove('show');
+                });
+            }
+        });
+
+        // Window management
+        class DesktopWindow {
+            constructor(title, content = '', docId = null) {
+                this.element = document.createElement('div');
+                this.element.className = 'window';
+                this.element.style.left = (50 + windows.length * 20) + 'px';
+                this.element.style.top = (50 + windows.length * 20) + 'px';
+                this.element.style.width = '400px';
+                this.element.style.height = '300px';
+                
+                this.titleBar = document.createElement('div');
+                this.titleBar.className = 'window-title';
+                this.titleBar.textContent = title;
+                
+                this.closeBtn = document.createElement('span');
+                this.closeBtn.className = 'window-close';
+                this.closeBtn.textContent = '×';
+                this.closeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.close();
+                };
+                this.titleBar.appendChild(this.closeBtn);
+                
+                this.contentDiv = document.createElement('div');
+                this.contentDiv.className = 'window-content';
+                this.contentDiv.innerHTML = content;
+                
+                this.element.appendChild(this.titleBar);
+                this.element.appendChild(this.contentDiv);
+                
+                document.body.appendChild(this.element);
+                
+                this.makeDraggable();
+                windows.push(this);
+                this.docId = docId;
+            }
+
+            makeDraggable() {
+                let offsetX = 0, offsetY = 0;
+                const titleBar = this.titleBar;
+                const element = this.element;
+
+                titleBar.onmousedown = (e) => {
+                    offsetX = e.clientX - element.offsetLeft;
+                    offsetY = e.clientY - element.offsetTop;
+                    
+                    document.onmousemove = (e) => {
+                        element.style.left = (e.clientX - offsetX) + 'px';
+                        element.style.top = (e.clientY - offsetY) + 'px';
+                    };
+                    
+                    document.onmouseup = () => {
+                        document.onmousemove = null;
+                        document.onmouseup = null;
+                    };
+                };
+            }
+
+            close() {
+                this.element.remove();
+                windows = windows.filter(w => w !== this);
+            }
+        }
+
+        // Document window
+        function openDocument(doc) {
+            const textarea = document.createElement('textarea');
+            textarea.value = doc.content;
+            
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.className = 'button-row';
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'button';
+            copyBtn.textContent = 'Copy';
+            copyBtn.onclick = () => {
+                const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+                navigator.clipboard.writeText(selected);
+            };
+            
+            const pasteBtn = document.createElement('button');
+            pasteBtn.className = 'button';
+            pasteBtn.textContent = 'Paste';
+            pasteBtn.onclick = async () => {
+                const text = await navigator.clipboard.readText();
+                textarea.value += text;
+            };
+            
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'button';
+            saveBtn.textContent = 'Save';
+            saveBtn.onclick = async () => {
+                await fetch(`/api/document/${doc.id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: textarea.value})
+                });
+            };
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'button';
+            deleteBtn.textContent = 'Throw away';
+            deleteBtn.onclick = async () => {
+                if (confirm(`Throw away '${doc.name}' to Wastebasket?`)) {
+                    await fetch(`/api/document/${doc.id}/delete`, {method: 'POST'});
+                    loadDesktop();
+                    win.close();
+                }
+            };
+            
+            buttonsDiv.appendChild(copyBtn);
+            buttonsDiv.appendChild(pasteBtn);
+            buttonsDiv.appendChild(saveBtn);
+            buttonsDiv.appendChild(deleteBtn);
+            
+            const content = textarea.outerHTML + buttonsDiv.outerHTML;
+            const win = new DesktopWindow(doc.name, content, doc.id);
+            
+            win.contentDiv.innerHTML = '';
+            win.contentDiv.appendChild(textarea);
+            win.contentDiv.appendChild(buttonsDiv);
+        }
+
+        // Create document dialogs
+        async function promptCreateDocument(docType) {
+            const name = prompt('New Document', `${docType}-${new Date().toLocaleDateString()}`);
+            if (!name) return;
+            
+            const response = await fetch('/api/document/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({doc_type: docType, name: name})
+            });
+            
+            const doc = await response.json();
+            loadDesktop();
+            openDocument(doc);
+        }
+
+        function promptNewDocument() {
+            const type = prompt('Document type (write/calc/draw):', 'write');
+            if (type) promptCreateDocument(type.trim().toLowerCase());
+        }
+
+        // Clipboard window
+        async function showClipboardWindow() {
+            const response = await fetch('/api/clipboard');
+            const data = await response.json();
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = data.content;
+            
+            const updateBtn = document.createElement('button');
+            updateBtn.className = 'button';
+            updateBtn.textContent = 'Update clipboard';
+            updateBtn.onclick = async () => {
+                await fetch('/api/clipboard', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: textarea.value})
+                });
+            };
+            
+            const content = textarea.outerHTML + updateBtn.outerHTML;
+            const win = new DesktopWindow('Clipboard', content);
+            
+            win.contentDiv.innerHTML = '';
+            win.contentDiv.appendChild(textarea);
+            const btnDiv = document.createElement('div');
+            btnDiv.style.padding = '4px';
+            btnDiv.appendChild(updateBtn);
+            win.contentDiv.appendChild(btnDiv);
+        }
+
+        async function clearClipboard() {
+            await fetch('/api/clipboard', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({content: ''})
+            });
+            alert('Clipboard cleared');
+        }
+
+        // Wastebasket window
+        async function showWastebasketWindow() {
+            const response = await fetch('/api/desktop');
+            const state = await response.json();
+            
+            const listbox = document.createElement('div');
+            listbox.className = 'listbox';
+            
+            if (state.wastebasket.length === 0) {
+                listbox.textContent = '(empty)';
+            } else {
+                state.wastebasket.reverse().forEach(doc => {
+                    const item = document.createElement('div');
+                    item.className = 'listbox-item';
+                    item.textContent = `${doc.name} (${doc.doc_type})`;
+                    item.onclick = async () => {
+                        await fetch(`/api/wastebasket/restore/${doc.id}`, {method: 'POST'});
+                        loadDesktop();
+                        win.close();
+                    };
+                    listbox.appendChild(item);
+                });
+            }
+            
+            const restoreBtn = document.createElement('button');
+            restoreBtn.className = 'button';
+            restoreBtn.textContent = 'Restore';
+            restoreBtn.onclick = async () => {
+                if (state.wastebasket.length > 0) {
+                    const lastDoc = state.wastebasket[state.wastebasket.length - 1];
+                    await fetch(`/api/wastebasket/restore/${lastDoc.id}`, {method: 'POST'});
+                    loadDesktop();
+                    win.close();
+                }
+            };
+            
+            const content = listbox.outerHTML + restoreBtn.outerHTML;
+            const win = new DesktopWindow('Wastebasket', content);
+            
+            win.contentDiv.innerHTML = '';
+            win.contentDiv.appendChild(listbox);
+            const btnDiv = document.createElement('div');
+            btnDiv.style.padding = '4px';
+            btnDiv.appendChild(restoreBtn);
+            win.contentDiv.appendChild(btnDiv);
+        }
+
+        // Preferences window
+        function showPreferences() {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'window-input';
+            input.value = '#d9d9d9';
+            
+            const applyBtn = document.createElement('button');
+            applyBtn.className = 'button';
+            applyBtn.textContent = 'Apply';
+            applyBtn.onclick = () => {
+                document.querySelector('.desktop').style.backgroundColor = input.value;
+            };
+            
+            const content = input.outerHTML + applyBtn.outerHTML;
+            const win = new DesktopWindow('Preferences', content);
+            
+            win.contentDiv.innerHTML = '';
+            win.contentDiv.appendChild(input);
+            const btnDiv = document.createElement('div');
+            btnDiv.style.padding = '4px';
+            btnDiv.appendChild(applyBtn);
+            win.contentDiv.appendChild(btnDiv);
+        }
+
+        function showAbout() {
+            alert('Lisa-ish Desktop\n\nA web-based desktop environment inspired by the Apple Lisa.\n\nIdeas: stationery pads, wastebasket restore, clipboard object.');
+        }
+
+        // Initial load
+        loadDesktop();
+    </script>
+</body>
+</html>
