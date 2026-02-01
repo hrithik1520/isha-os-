@@ -25,6 +25,8 @@
             gap: 20px;
             padding: 4px 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            height: 30px;
+            align-items: center;
         }
 
         .menu-item {
@@ -33,6 +35,7 @@
             border: 1px solid transparent;
             font-weight: bold;
             font-size: 12px;
+            position: relative;
         }
 
         .menu-item:hover {
@@ -43,6 +46,8 @@
         .dropdown-menu {
             display: none;
             position: absolute;
+            top: 30px;
+            left: 0;
             background-color: #c0c0c0;
             border: 1px solid #dfdfdf;
             box-shadow: 1px 1px 0 rgba(0,0,0,0.2);
@@ -73,7 +78,7 @@
 
         .desktop {
             display: flex;
-            height: calc(100vh - 40px);
+            height: calc(100vh - 30px);
             padding: 20px;
             overflow: auto;
             gap: 40px;
@@ -209,7 +214,6 @@
             cursor: pointer;
             font-size: 11px;
             font-weight: bold;
-            active: false;
         }
 
         .button:hover {
@@ -256,27 +260,30 @@
             color: black;
             font-weight: bold;
         }
+
+        .label-text {
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
     <div class="menubar">
-        <div class="menu-item" onclick="toggleMenu('file-menu')">File</div>
+        <div class="menu-item" onclick="toggleMenu(event, 'file-menu')">File</div>
         <div id="file-menu" class="dropdown-menu">
             <div class="menu-option" onclick="promptNewDocument()">New from Stationery…</div>
             <div class="menu-separator"></div>
-            <div class="menu-option" onclick="alert('Use browser back or close tab')">Quit</div>
+            <div class="menu-option" onclick="clearAllData()">Clear All Data</div>
         </div>
 
-        <div class="menu-item" onclick="toggleMenu('edit-menu')">Edit</div>
+        <div class="menu-item" onclick="toggleMenu(event, 'edit-menu')">Edit</div>
         <div id="edit-menu" class="dropdown-menu">
             <div class="menu-option" onclick="showClipboardWindow()">Show Clipboard</div>
             <div class="menu-option" onclick="clearClipboard()">Clear Clipboard</div>
         </div>
 
-        <div class="menu-item" onclick="toggleMenu('desk-menu')">Desk</div>
-        <div id="desk-menu" class="dropdown-menu">
-            <div class="menu-option" onclick="alert('No open windows')">No open windows</div>
-        </div>
+        <div class="menu-item" onclick="toggleMenu(event, 'desk-menu')">Desk</div>
+        <div id="desk-menu" class="dropdown-menu"></div>
 
         <div class="menu-item" onclick="showAbout()">Help</div>
 
@@ -286,9 +293,31 @@
     <div class="desktop" id="desktop"></div>
 
     <script>
+        // App state
+        let state = {
+            clipboard: "",
+            documents: [],
+            wastebasket: [],
+            stationery: [
+                { label: "Write pad", type: "write" },
+                { label: "Calc pad", type: "calc" },
+                { label: "Draw pad", type: "draw" },
+            ]
+        };
+
         let windows = [];
-        let desktopState = {};
-        let selectedDocument = null;
+
+        // LocalStorage management
+        function saveState() {
+            localStorage.setItem('desktopState', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('desktopState');
+            if (saved) {
+                state = JSON.parse(saved);
+            }
+        }
 
         // Clock update
         function updateClock() {
@@ -298,18 +327,6 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Fetch desktop state
-        async function loadDesktop() {
-            try {
-                const response = await fetch('/api/desktop');
-                if (!response.ok) throw new Error('Failed to load desktop');
-                desktopState = await response.json();
-                renderDesktop();
-            } catch (e) {
-                console.error('Error loading desktop:', e);
-            }
-        }
-
         // Render desktop
         function renderDesktop() {
             const desktop = document.getElementById('desktop');
@@ -318,7 +335,6 @@
             // Left column: system icons
             const leftSection = document.createElement('div');
             leftSection.className = 'desktop-section';
-            leftSection.style.marginTop = '10px';
 
             const createIcon = (label, icon, onclick, subtitle = '') => {
                 const iconEl = document.createElement('div');
@@ -348,7 +364,7 @@
 
             const stationeryContainer = document.createElement('div');
             stationeryContainer.className = 'icon-container';
-            desktopState.stationery.forEach(pad => {
+            state.stationery.forEach(pad => {
                 const icon = createIcon(
                     pad.label,
                     pad.type === 'write' ? '📝' : pad.type === 'calc' ? '🧮' : '🎨',
@@ -368,7 +384,7 @@
             docsTitle.textContent = 'Documents';
             docsSection.appendChild(docsTitle);
 
-            if (desktopState.documents.length === 0) {
+            if (state.documents.length === 0) {
                 const empty = document.createElement('div');
                 empty.style.fontSize = '11px';
                 empty.textContent = '(No documents yet)';
@@ -376,7 +392,7 @@
             } else {
                 const docsContainer = document.createElement('div');
                 docsContainer.className = 'icon-container';
-                desktopState.documents.slice(-12).forEach(doc => {
+                state.documents.slice(-12).forEach(doc => {
                     const icon = createIcon(
                         doc.name,
                         '📄',
@@ -388,66 +404,103 @@
                 docsSection.appendChild(docsContainer);
             }
             desktop.appendChild(docsSection);
+
+            updateDeskMenu();
         }
 
         // Menu functions
-        function toggleMenu(menuId) {
-            // Close all menus
+        function toggleMenu(event, menuId) {
+            event.stopPropagation();
             document.querySelectorAll('.dropdown-menu').forEach(m => {
                 m.classList.remove('show');
             });
-            // Open clicked menu
             document.getElementById(menuId).classList.toggle('show');
         }
 
-        document.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('menu-item')) {
-                document.querySelectorAll('.dropdown-menu').forEach(m => {
-                    m.classList.remove('show');
-                });
-            }
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.dropdown-menu').forEach(m => {
+                m.classList.remove('show');
+            });
         });
+
+        function updateDeskMenu() {
+            const menu = document.getElementById('desk-menu');
+            menu.innerHTML = '';
+
+            const openWindows = windows.filter(w => w.element.parentElement);
+            if (openWindows.length > 0) {
+                openWindows.forEach(w => {
+                    const option = document.createElement('div');
+                    option.className = 'menu-option';
+                    option.textContent = w.title;
+                    option.onclick = () => {
+                        w.element.style.zIndex = Math.max(...windows.map(x => parseInt(x.element.style.zIndex) || 0)) + 1;
+                    };
+                    menu.appendChild(option);
+                });
+                menu.appendChild(document.createElement('div')).className = 'menu-separator';
+            }
+
+            state.documents.slice(-10).forEach(doc => {
+                const option = document.createElement('div');
+                option.className = 'menu-option';
+                option.textContent = `Open: ${doc.name}`;
+                option.onclick = () => openDocument(doc);
+                menu.appendChild(option);
+            });
+
+            if (menu.children.length > 0) {
+                menu.appendChild(document.createElement('div')).className = 'menu-separator';
+            }
+            
+            const aboutOption = document.createElement('div');
+            aboutOption.className = 'menu-option';
+            aboutOption.textContent = 'About';
+            aboutOption.onclick = showAbout;
+            menu.appendChild(aboutOption);
+        }
 
         // Window management
         class DesktopWindow {
-            constructor(title, content = '', docId = null) {
+            constructor(title, content = '') {
+                this.title = title;
                 this.element = document.createElement('div');
                 this.element.className = 'window';
                 this.element.style.left = (50 + windows.length * 20) + 'px';
                 this.element.style.top = (50 + windows.length * 20) + 'px';
                 this.element.style.width = '400px';
                 this.element.style.height = '300px';
+                this.element.style.zIndex = 500 + windows.length;
                 
-                this.titleBar = document.createElement('div');
-                this.titleBar.className = 'window-title';
-                this.titleBar.textContent = title;
+                const titleBar = document.createElement('div');
+                titleBar.className = 'window-title';
+                titleBar.textContent = title;
                 
-                this.closeBtn = document.createElement('span');
-                this.closeBtn.className = 'window-close';
-                this.closeBtn.textContent = '×';
-                this.closeBtn.onclick = (e) => {
+                const closeBtn = document.createElement('span');
+                closeBtn.className = 'window-close';
+                closeBtn.textContent = '×';
+                closeBtn.onclick = (e) => {
                     e.stopPropagation();
                     this.close();
                 };
-                this.titleBar.appendChild(this.closeBtn);
+                titleBar.appendChild(closeBtn);
                 
                 this.contentDiv = document.createElement('div');
                 this.contentDiv.className = 'window-content';
                 this.contentDiv.innerHTML = content;
                 
-                this.element.appendChild(this.titleBar);
+                this.element.appendChild(titleBar);
                 this.element.appendChild(this.contentDiv);
                 
                 document.body.appendChild(this.element);
                 
-                this.makeDraggable();
+                this.makeDraggable(titleBar);
                 windows.push(this);
-                this.docId = docId;
+                updateDeskMenu();
             }
 
-            makeDraggable() {
+            makeDraggable(titleBar) {
                 let offsetX = 0, offsetY = 0;
-                const titleBar = this.titleBar;
                 const element = this.element;
 
                 titleBar.onmousedown = (e) => {
@@ -469,6 +522,7 @@
             close() {
                 this.element.remove();
                 windows = windows.filter(w => w !== this);
+                updateDeskMenu();
             }
         }
 
@@ -484,37 +538,48 @@
             copyBtn.className = 'button';
             copyBtn.textContent = 'Copy';
             copyBtn.onclick = () => {
-                const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
-                navigator.clipboard.writeText(selected);
+                const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd) || textarea.value;
+                navigator.clipboard.writeText(selected).then(() => {
+                    state.clipboard = selected;
+                    saveState();
+                });
             };
             
             const pasteBtn = document.createElement('button');
             pasteBtn.className = 'button';
             pasteBtn.textContent = 'Paste';
             pasteBtn.onclick = async () => {
-                const text = await navigator.clipboard.readText();
-                textarea.value += text;
+                try {
+                    const text = await navigator.clipboard.readText();
+                    textarea.value += text;
+                } catch (e) {
+                    if (state.clipboard) {
+                        textarea.value += state.clipboard;
+                    }
+                }
             };
             
             const saveBtn = document.createElement('button');
             saveBtn.className = 'button';
             saveBtn.textContent = 'Save';
-            saveBtn.onclick = async () => {
-                await fetch(`/api/document/${doc.id}`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({content: textarea.value})
-                });
+            saveBtn.onclick = () => {
+                doc.content = textarea.value;
+                saveState();
             };
             
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'button';
             deleteBtn.textContent = 'Throw away';
-            deleteBtn.onclick = async () => {
+            deleteBtn.onclick = () => {
                 if (confirm(`Throw away '${doc.name}' to Wastebasket?`)) {
-                    await fetch(`/api/document/${doc.id}/delete`, {method: 'POST'});
-                    loadDesktop();
-                    win.close();
+                    const idx = state.documents.indexOf(doc);
+                    if (idx > -1) {
+                        state.documents.splice(idx, 1);
+                        state.wastebasket.push(doc);
+                        saveState();
+                        renderDesktop();
+                        win.close();
+                    }
                 }
             };
             
@@ -523,27 +588,29 @@
             buttonsDiv.appendChild(saveBtn);
             buttonsDiv.appendChild(deleteBtn);
             
-            const content = textarea.outerHTML + buttonsDiv.outerHTML;
-            const win = new DesktopWindow(doc.name, content, doc.id);
+            const win = new DesktopWindow(doc.name);
             
             win.contentDiv.innerHTML = '';
             win.contentDiv.appendChild(textarea);
             win.contentDiv.appendChild(buttonsDiv);
         }
 
-        // Create document dialogs
-        async function promptCreateDocument(docType) {
+        // Create document
+        function promptCreateDocument(docType) {
             const name = prompt('New Document', `${docType}-${new Date().toLocaleDateString()}`);
             if (!name) return;
             
-            const response = await fetch('/api/document/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({doc_type: docType, name: name})
-            });
+            const doc = {
+                id: Date.now().toString(),
+                doc_type: docType,
+                name: name,
+                content: "",
+                created_at: Date.now()
+            };
             
-            const doc = await response.json();
-            loadDesktop();
+            state.documents.push(doc);
+            saveState();
+            renderDesktop();
             openDocument(doc);
         }
 
@@ -553,26 +620,19 @@
         }
 
         // Clipboard window
-        async function showClipboardWindow() {
-            const response = await fetch('/api/clipboard');
-            const data = await response.json();
-            
+        function showClipboardWindow() {
             const textarea = document.createElement('textarea');
-            textarea.value = data.content;
+            textarea.value = state.clipboard;
             
             const updateBtn = document.createElement('button');
             updateBtn.className = 'button';
             updateBtn.textContent = 'Update clipboard';
-            updateBtn.onclick = async () => {
-                await fetch('/api/clipboard', {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({content: textarea.value})
-                });
+            updateBtn.onclick = () => {
+                state.clipboard = textarea.value;
+                saveState();
             };
             
-            const content = textarea.outerHTML + updateBtn.outerHTML;
-            const win = new DesktopWindow('Clipboard', content);
+            const win = new DesktopWindow('Clipboard');
             
             win.contentDiv.innerHTML = '';
             win.contentDiv.appendChild(textarea);
@@ -582,34 +642,33 @@
             win.contentDiv.appendChild(btnDiv);
         }
 
-        async function clearClipboard() {
-            await fetch('/api/clipboard', {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({content: ''})
-            });
+        function clearClipboard() {
+            state.clipboard = '';
+            saveState();
             alert('Clipboard cleared');
         }
 
         // Wastebasket window
-        async function showWastebasketWindow() {
-            const response = await fetch('/api/desktop');
-            const state = await response.json();
-            
+        function showWastebasketWindow() {
             const listbox = document.createElement('div');
             listbox.className = 'listbox';
             
             if (state.wastebasket.length === 0) {
                 listbox.textContent = '(empty)';
             } else {
-                state.wastebasket.reverse().forEach(doc => {
+                state.wastebasket.slice().reverse().forEach(doc => {
                     const item = document.createElement('div');
                     item.className = 'listbox-item';
                     item.textContent = `${doc.name} (${doc.doc_type})`;
-                    item.onclick = async () => {
-                        await fetch(`/api/wastebasket/restore/${doc.id}`, {method: 'POST'});
-                        loadDesktop();
-                        win.close();
+                    item.onclick = () => {
+                        const idx = state.wastebasket.indexOf(doc);
+                        if (idx > -1) {
+                            state.wastebasket.splice(idx, 1);
+                            state.documents.push(doc);
+                            saveState();
+                            renderDesktop();
+                            win.close();
+                        }
                     };
                     listbox.appendChild(item);
                 });
@@ -618,17 +677,17 @@
             const restoreBtn = document.createElement('button');
             restoreBtn.className = 'button';
             restoreBtn.textContent = 'Restore';
-            restoreBtn.onclick = async () => {
+            restoreBtn.onclick = () => {
                 if (state.wastebasket.length > 0) {
-                    const lastDoc = state.wastebasket[state.wastebasket.length - 1];
-                    await fetch(`/api/wastebasket/restore/${lastDoc.id}`, {method: 'POST'});
-                    loadDesktop();
+                    const doc = state.wastebasket.pop();
+                    state.documents.push(doc);
+                    saveState();
+                    renderDesktop();
                     win.close();
                 }
             };
             
-            const content = listbox.outerHTML + restoreBtn.outerHTML;
-            const win = new DesktopWindow('Wastebasket', content);
+            const win = new DesktopWindow('Wastebasket');
             
             win.contentDiv.innerHTML = '';
             win.contentDiv.appendChild(listbox);
@@ -652,8 +711,7 @@
                 document.querySelector('.desktop').style.backgroundColor = input.value;
             };
             
-            const content = input.outerHTML + applyBtn.outerHTML;
-            const win = new DesktopWindow('Preferences', content);
+            const win = new DesktopWindow('Preferences');
             
             win.contentDiv.innerHTML = '';
             win.contentDiv.appendChild(input);
@@ -667,8 +725,19 @@
             alert('Lisa-ish Desktop\n\nA web-based desktop environment inspired by the Apple Lisa.\n\nIdeas: stationery pads, wastebasket restore, clipboard object.');
         }
 
+        function clearAllData() {
+            if (confirm('Clear all documents and data? This cannot be undone.')) {
+                state.clipboard = '';
+                state.documents = [];
+                state.wastebasket = [];
+                saveState();
+                renderDesktop();
+            }
+        }
+
         // Initial load
-        loadDesktop();
+        loadState();
+        renderDesktop();
     </script>
 </body>
 </html>
