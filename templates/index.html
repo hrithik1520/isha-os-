@@ -300,9 +300,14 @@
 
         // Fetch desktop state
         async function loadDesktop() {
-            const response = await fetch('/api/desktop');
-            desktopState = await response.json();
-            renderDesktop();
+            try {
+                const response = await fetch('/api/desktop');
+                if (!response.ok) throw new Error('Failed to load desktop');
+                desktopState = await response.json();
+                renderDesktop();
+            } catch (e) {
+                console.error('Error loading desktop:', e);
+            }
         }
 
         // Render desktop
